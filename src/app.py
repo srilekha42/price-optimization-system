@@ -5,42 +5,49 @@ import joblib
 import matplotlib.pyplot as plt
 
 # -----------------------------
-
 # Page Config
+# -----------------------------
+st.set_page_config(page_title="Price Optimization", layout="wide")
 
 # -----------------------------
-
-st.set_page_config(page_title="Price Optimization System", layout="wide")
-
+# Load Model
 # -----------------------------
-
-# Load trained model
-
-# -----------------------------
-
 model = joblib.load("outputs/pricing_model.pkl")
-
-st.title("📊 Price Optimization Dashboard")
-st.write("Predict product demand and identify the optimal price that maximizes revenue.")
-
-# -----------------------------
-
-# Simulate price range
-
-# -----------------------------
-
-price_range = np.linspace(20, 400, 60)
-
-# Get feature names used in training
-
 features = model.feature_names_in_
 
-# Create input dataframe
+# -----------------------------
+# Sidebar
+# -----------------------------
+st.sidebar.header("⚙️ Settings")
 
-input_df = pd.DataFrame(np.zeros((len(price_range), len(features))), columns=features)
+cost = st.sidebar.slider("Cost Price (₹)", 50, 200, 100)
+min_price = st.sidebar.slider("Min Price", 10, 100, 20)
+max_price = st.sidebar.slider("Max Price", 200, 500, 400)
 
-# Assign price-related features
+# -----------------------------
+# Title
+# -----------------------------
+st.markdown("# 📊 Price Optimization Dashboard")
+st.markdown("### Maximize profit using machine learning-based pricing strategy")
 
+st.info("💡 Optimal price is calculated by maximizing profit = (price - cost) × predicted demand")
+
+# -----------------------------
+# Price Range
+# -----------------------------
+price_range = np.linspace(min_price, max_price, 60)
+
+# -----------------------------
+# Feature Preparation
+# -----------------------------
+mean_values = np.ones(len(features)) * 50  # fallback
+
+input_df = pd.DataFrame(
+    np.tile(mean_values, (len(price_range), 1)),
+    columns=features
+)
+
+# Assign price features
 input_df["unit_price"] = price_range
 
 if "total_price" in features:
@@ -50,81 +57,88 @@ if "lag_price" in features:
     input_df["lag_price"] = price_range
 
 # -----------------------------
-
-# Predict demand
-
+# Prediction
 # -----------------------------
-
 demands = model.predict(input_df)
-
-# Ensure demand is non-negative
-
-demands = np.maximum(demands, 0)
+demands = np.clip(demands, 0, 10000)
 
 # -----------------------------
-
-# Revenue calculation
+# Profit Calculation
+# -----------------------------
+profits = (price_range - cost) * demands
 
 # -----------------------------
-
-revenues = price_range * demands
-
+# Optimal Price
 # -----------------------------
-
-# Find optimal price
-
-# -----------------------------
-
-optimal_index = np.argmax(revenues)
+optimal_index = np.argmax(profits)
 optimal_price = price_range[optimal_index]
-optimal_revenue = revenues[optimal_index]
+optimal_profit = profits[optimal_index]
 optimal_demand = demands[optimal_index]
 
 # -----------------------------
-
-# Show key metrics
-
+# Metrics
 # -----------------------------
-
 col1, col2, col3 = st.columns(3)
 
-col1.metric("Optimal Price", f"₹{optimal_price:.2f}")
-col2.metric("Expected Demand", f"{optimal_demand:.2f} units")
-col3.metric("Expected Revenue", f"₹{optimal_revenue:.2f}")
+col1.metric("💰 Optimal Price", f"₹{optimal_price:.2f}")
+col2.metric("📦 Demand", f"{optimal_demand:.2f}")
+col3.metric("📈 Profit", f"₹{optimal_profit:.2f}")
 
 # -----------------------------
+# Graphs
+# -----------------------------
+st.subheader("📈 Analysis")
 
-# Plot revenue curve
+colA, colB = st.columns(2)
+
+# Profit Curve
+fig1, ax1 = plt.subplots()
+ax1.plot(price_range, profits, label="Profit Curve")
+ax1.scatter(optimal_price, optimal_profit, color="red", s=100)
+ax1.set_title("Price vs Profit")
+ax1.set_xlabel("Price")
+ax1.set_ylabel("Profit")
+ax1.legend()
+
+with colA:
+    st.pyplot(fig1)
+
+# Demand Curve
+fig2, ax2 = plt.subplots()
+ax2.plot(price_range, demands)
+ax2.set_title("Price vs Demand")
+ax2.set_xlabel("Price")
+ax2.set_ylabel("Demand")
+
+with colB:
+    st.pyplot(fig2)
 
 # -----------------------------
+# Feature Importance
+# -----------------------------
+st.subheader("📊 Feature Importance")
 
-fig, ax = plt.subplots()
+if hasattr(model, "feature_importances_"):
+    importances = model.feature_importances_
 
-ax.plot(price_range, revenues, label="Revenue Curve")
+    feat_df = pd.DataFrame({
+        "Feature": features,
+        "Importance": importances
+    }).sort_values(by="Importance", ascending=False)
 
-# Highlight optimal price
-
-ax.scatter(optimal_price, optimal_revenue, color="red", s=100, label="Optimal Price")
-
-ax.set_xlabel("Price")
-ax.set_ylabel("Revenue")
-ax.set_title("Price vs Revenue Curve")
-
-ax.legend()
-
-st.pyplot(fig)
+    st.bar_chart(feat_df.set_index("Feature"))
+else:
+    st.warning("Feature importance not available.")
 
 # -----------------------------
-
-# Price simulation tool
-
+# User Simulation
 # -----------------------------
+st.subheader("🎯 Try Your Own Price")
 
-st.subheader("Try Your Own Price")
+user_price = st.slider("Select Price", float(min_price), float(max_price), 100.0)
 
-user_price = st.slider("Select a price", 20.0, 400.0, 100.0)
-
-user_input = pd.DataFrame(np.zeros((1, len(features))), columns=features)
+# ✅ FIXED SHAPE ISSUE HERE
+user_input = pd.DataFrame([mean_values], columns=features)
 
 user_input["unit_price"] = user_price
 
@@ -135,7 +149,9 @@ if "lag_price" in features:
     user_input["lag_price"] = user_price
 
 predicted_demand = model.predict(user_input)[0]
-predicted_revenue = user_price * predicted_demand
+predicted_demand = max(predicted_demand, 0)
 
-st.write(f"Predicted Demand: {predicted_demand:.2f} units")
-st.write(f"Predicted Revenue: ₹{predicted_revenue:.2f}")
+predicted_profit = (user_price - cost) * predicted_demand
+
+st.success(f"📦 Predicted Demand: {predicted_demand:.2f} units")
+st.success(f"📈 Expected Profit: ₹{predicted_profit:.2f}")
