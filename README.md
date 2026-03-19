@@ -45,3 +45,31 @@ Open in browser:
 ```
 http://localhost:8501
 ```
+## 📸 Project Demo
+
+This dashboard allows users to simulate pricing strategies and identify the optimal price that maximizes profit using machine learning.
+
+---
+
+### 🔹 Dashboard Overview
+![Dashboard](outputs/screenshots/dashboard.png)
+
+---
+
+### 🔹 Profit & Demand Analysis
+![Analysis](outputs/screenshots/analysis.png)
+
+---
+
+### 🔹 Feature Importance
+![Feature Importance](outputs/screenshots/feature_importance.png)
+
+---
+
+### 🔹 Price Simulation
+![Simulation](outputs/screenshots/price_simulation.png)
+
+---
+
+### 🔹 Settings Panel
+![Settings](outputs/screenshots/settings.png)
